@@ -1,0 +1,18 @@
+services:
+  psql:
+    image: postgres:17.3
+    container_name: osc-db
+    environment: # This will read the values from the .env file
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGUSER: ${DB_USERNAME}
+      PGDATABASE: ${DB_DATABASE}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - ./sql/init:/docker-entrypoint-initdb.d # This run any sql files during Postgres initilzation
+      - osc_psql_vol:/var/lib/postgresql/data # This will store the data into a managed docker volume
+volumes:
+  osc_psql_vol:
+

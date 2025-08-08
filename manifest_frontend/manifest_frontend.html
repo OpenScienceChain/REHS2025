@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+
+
+<html lang="en">
+
+<head>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style type="text/css">
+ body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        min-height: 100vh;
+        flex-direction: row;
+    }
+
+    #graph-container {
+        width: 1000px;
+        height: 600px;
+        border: 1px solid rgb(0, 0, 0);
+    }
+
+    .card {
+        width: 300px;
+        height: 400px;
+        margin-left: 32px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 16px;
+        background: #fff;
+        font: arial, sans-serif;
+        font-weight: normal;
+        overflow: auto;
+    }
+
+    h2, h3 {
+        font-weight: normal;
+    }
+
+    #searchInput {
+        position: absolute;
+        top: 30px;
+        right: 30px;
+        z-index: 10;
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        font-size: 16px;
+        background: #fff;
+    }
+
+    .left-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #cluster_checkbox_containers {
+        margin-top: 16px;
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    #cluster_checkbox_containers label {
+        margin-right: 12px;
+    }
+
+    #legend {
+        margin-top: 10px !important;
+        display: flex !important;
+        justify-content: center !important;
+        gap: 32px !important;
+        flex-wrap: wrap !important;
+    }
+
+    /* Each legend item is a horizontal pair of line and label */
+    .legend-item {
+        display: flex;
+        align-items: center;
+    }
+
+    .legend-line {
+        width: 30px;
+        height: 0;
+        border-top-width: 3px;
+        border-top-style: solid;
+        margin-right: 10px;
+    }
+
+    .salmon {
+        border-top-color: #FA8072;
+        border-top-style: solid;
+    }
+
+    .purple {
+        border-top-color: #373277;
+        border-top-style: dotted;
+    }
+
+    .green {
+        border-top-color: #44a04c;
+        border-top-style: dashed;
+    }
+
+    .legend-label {
+        margin: 0;
+    }
+    </style>
+</head>
+
+<body>
+
+    <div class="left-panel">
+
+        <h2>Open Science Chain Artifact Relationships</h2>
+        <div id="graph-container"></div>
+
+        <div id="cluster_checkbox_containers">
+            <label><input type="checkbox" id="Keyword Clusters" name="Keyword Clusters"> Keyword Clusters</label>
+            <label><input type="checkbox" id="Contributor Clusters" name="Contributor Clusters"> Contributor Clusters</label>
+            <label><input type="checkbox" id="Hash Clusters" name="Hash Clusters"> Hash Clusters</label>
+        </div>
+
+    <div id="legend">
+    <div class="legend-item">
+        <div class="legend-line salmon"></div>
+        <div class="legend-label">Keyword Similarity</div>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line purple"></div>
+        <div class="legend-label">Contributor Similarity</div>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line green"></div>
+        <div class="legend-label">File Similarity</div>
+    </div>
+    </div>
+
+
+    </div>
+
+    <div id="card" class="card">
+        <h2 id="title">Title: </h2>
+        <h3 id="artifact-id">Artifact-id: </h3>
+        <h3 id="artifact">Artifact: </h3>
+    </div>
+
+    <input type="text" placeholder="Search.." id="searchInput">
+</body>
+
+<script type="text/javascript">
+const base_backend_url = "http://127.0.0.1:5000/";
+const backend_url = "http://127.0.0.1:5000/" + "manifest/all";
+const keyword_url = "http://127.0.0.1:5000/cluster/keywords";
+const cluster_url = "http://127.0.0.1:5000/cluster";
+/* fetching the manifest data from the backend
+*/
+let nodesData = [];
+let edgesData = [];
+let nodeHashes = {};
+var network;
+window.onload = function() {
+    fetchManifest().then(() => {
+        generate_cluster_nodes();
+    })
+    generate_cluster_nodes();
+};
+
+const searchInput = document.getElementById('searchInput');
+searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent the default action of the Enter key
+        console.log('Enter key pressed');
+        searchNode();
+    }
+})
+
+/*Function to get number of edges connected to each node
+*/
+function calculateNodeDegrees(edges) {
+    const degreeMap = {};
+    edges.forEach(edge => {
+        degreeMap[edge.from] = (degreeMap[edge.from] || 0) + 1;
+        degreeMap[edge.to] = (degreeMap[edge.to] || 0)
+    })
+    return degreeMap;
+}
+
+/* Function to calculate node size
+*/
+function calculateNodeSize(nodes, degreeMap)
+{
+    const updatedNodes = nodes.map(node => {
+        const degree = degreeMap[node.id] || 0;
+        const size = 10 + degree * 5; 
+        return {...node, size: size};
+    })
+    return updatedNodes;
+}
+
+
+/* Generating cluster nodes
+*/
+async function generating_keyword_clusters()
+{
+    const response = await fetch(`${keyword_url}`);
+    if (!response.ok)
+    {
+        throw new Error(`Oh no error! Status: ${response.status}`);
+    }
+    const keywords = await response.json();
+    cluster_names = keywords.keywords
+    cluster_names.forEach(item => {
+        window.nodes.add({id: item.cluster_name, label: truncateLabel(item.cluster_name, 10), title: item.cluster_name, color: '#373277', cid: "keyword_cluster", size: 20 + 0.5*item.edge_count})
+    })
+    
+}
+async function generating_contributor_clusters()
+{
+        /*Getting the contributor cluster nodes*/
+    const contributor = await fetch(`${cluster_url}/contributor`);
+    if(!contributor.ok)
+    {
+        throw new Error(`Error! Status: ${contributor.status}`);
+    }
+
+    const contributor_response = await contributor.json();
+    const contributor_cluster_names = contributor_response.contributors;
+    contributor_cluster_names.forEach(item => {
+        console.log(item);
+        window.nodes.add({id: item.contributor, label: truncateLabel(item.contributor, 10), title: item.contributor, color: "#FFA500", cid: "contributor_cluster", size: 20 + 3*item.num_artifacts})
+    })
+}
+
+async function generating_hash_clusters()
+{
+    const hash = await fetch(`${cluster_url}/hashes`);
+    if(!hash.ok)
+    {
+        throw new Error(`Error! Status: ${hash.status}`);
+    }
+    const hash_response = await hash.json();
+    const hash_cluster_names = hash_response.hashes;
+    hash_cluster_names.forEach(item => {
+        window.nodes.add({id: item.cluster_name, label: truncateLabel(item.cluster_name, 10), title: item.cluster_name, color: "#007fff", cid: "hash_cluster", size: 20 + 3*item.edge_count});
+    })
+}
+
+function hiding_clusters(checkbox_id, cluster_function, cid)
+{
+    const cluster_checkbox = document.getElementById(checkbox_id);
+    var exists = false;
+    cluster_checkbox.addEventListener('change', function()
+    {
+        if(cluster_checkbox.checked && !exists)
+        {
+            cluster_function();
+            exists = true;
+        }
+        else if(cluster_checkbox.checked && exists)
+        {
+            window.nodes.forEach(node => 
+        {
+            if (node.cid === cid)
+            {
+                window.nodes.update({id: node.id, hidden: false});
+            }
+        })
+        }
+        else
+        {
+            window.nodes.forEach(node => {
+                if (node.cid === cid)
+                {
+                    window.nodes.update({id: node.id, hidden: true});
+                }
+            })
+        }
+    })
+}
+async function generate_cluster_nodes()
+{
+    try {
+
+            hiding_clusters("Keyword Clusters", generating_keyword_clusters, "keyword_cluster");
+            hiding_clusters("Contributor Clusters", generating_contributor_clusters, "contributor_cluster");
+            hiding_clusters("Hash Clusters", generating_hash_clusters, "hash_cluster");
+    }
+    catch(error)
+    {
+        console.log("Error: ", error);
+    }
+}
+
+
+
+function truncateLabel(text, maxLength)
+{
+    if (text.length > maxLength)
+    {
+        return text.slice(0, maxLength-3) + '...';
+    }
+    return text;
+}
+async function fetchManifest() {
+    try {
+        const response = await fetch(`${backend_url}/`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const manifest_data = await response.json();
+        const manifest = manifest_data.manifest;
+        console.log(manifest);
+        nodesData = manifest
+            .filter(item => item.artifact_id)
+            .map(item => ({
+                id: item.artifact_id,
+                label: truncateLabel(item.title, 10),
+                title: item.title,
+                originalColor: "#97c2fc"
+            }));
+        nodeHashes = manifest
+            .filter(item => item.artifact_id)
+            .reduce((acc, item) => {
+                acc[item.artifact_id] = item.hash_and_files;
+                return acc;
+            }, {});
+        
+            let edgesObj = manifest[manifest.length -1];
+        
+        const addedEdges = new Set();
+        const connectionCount = new Map();
+        edgesObj = Object.values(edgesObj);
+        edgesObj.forEach(value=> {
+            value.forEach(edge =>{
+                let edge_nodes = [edge.node1, edge.node2].sort();
+                let edgeKey = `${edge_nodes[0]}-${edge_nodes[1]}`;
+
+                if(connectionCount.has(edgeKey)) {
+                    connectionCount.set(edgeKey, 1.5*connectionCount.get(edgeKey) + 0.5);
+                } else {
+                    connectionCount.set(edgeKey, 1);
+                }
+
+                if(!addedEdges.has(edgeKey)) {
+                    edgesData.push({
+                        from: edge.node1,
+                        to: edge.node2,
+                        value: connectionCount.get(edgeKey)
+                    });
+                    addedEdges.add(edgeKey);
+                }
+                else
+                {
+                    edgesData.forEach(edgeData => {
+                        if(edgeData.from === edge.node1 && edgeData.to === edge.node2) {
+                            edgeData.value = connectionCount.get(edgeKey);
+                        }
+                    });
+                }
+                
+                /*
+                changeNodeColor(edge.node1, nodesData);
+                changeNodeColor(edge.node2, nodesData);
+                */
+            })
+        })
+        console.log(edgesData);
+        console.log(connectionCount);
+        
+        nodesData = [];
+        edgesData = [];
+        nodes = new vis.DataSet(nodesData);
+        edges = new vis.DataSet(edgesData);
+        var container = document.getElementById('graph-container');
+
+        
+        var data = {
+            nodes: nodes,
+            edges: edges
+        }
+var options = {
+    nodes: {
+        shape: "dot",
+        size: 18
+    },
+    interaction: {
+        selectConnectedEdges: false // Disable selection of connected edges
+    },
+    layout: {
+        improvedLayout: true,
+    },
+    physics: {
+        enabled: true,
+        barnesHut: {
+            gravitationalConstant: -5000,
+            springConstant: 0.02,
+            avoidOverlap: 2,
+        },
+        stabilization: {
+            iterations: 200
+        }
+    },
+    edges: {
+        scaling: {
+            min: 5,
+            max: 10,
+        },
+        color: {
+            highlight: '#0096FF'
+        }
+    }
+};
+
+
+        /* clustering clusters
+        */
+
+        network = new vis.Network(container, data, options);
+
+        const nodeDegrees = calculateNodeDegrees(edges.get());
+
+        const updatedNodeData = calculateNodeSize(nodes.get(), nodeDegrees);
+
+        console.log("original node data:", nodes.get());
+        network.redraw(); // Force redraw to apply the new sizes
+
+        network.on('click', function (params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const nodeData = nodes.get(nodeId);
+
+                if(document.getElementById('similarity_value')) {
+                    document.getElementById('similarity_value').remove();
+                }
+
+                if (nodeId === "thebigcontributor" || nodeId === "thebighash" || nodeId === "thebigkeyword") {
+                    window.network.openCluster(nodeId);
+                    console.log("Cluster opened:", nodeId);
+                }
+                if(nodeData.cid != 'keyword_cluster' && nodeData.cid != 'contributor_cluster' && nodeData.cid != 'hash_cluster'){
+                    document.getElementById('title').innerText = `Title: ${nodeData.title}`;
+                    document.getElementById('artifact-id').innerText = `Artifact-id: ${nodeData.id}`;
+                    document.getElementById('artifact').innerHTML = 'Artifact: <a href="http://localhost:8000/oscis.html" target="_blank">Artifact</a>';
+                    localStorage.setItem('selectedArtifactId', nodeData.id);
+                    console.log(`Selected Artifact ID: ${nodeData.id}`);
+                }
+                else if(nodeData.cid === 'keyword_cluster')
+                {
+                    window.nodes.update({id: nodeId, hidden: true});
+                    fetch_cluster_nodes(keyword_url, nodeData.title, "#FA8072", "keyword", "solid");
+                }
+                else if(nodeData.cid === 'contributor_cluster')
+                {
+                    window.nodes.update({id: nodeId, hidden: true})
+                    fetch_cluster_nodes(cluster_url + "/contributor", nodeData.title, "#373277", "contributor", "dotted");
+                }
+                else if(nodeData.cid === 'hash_cluster')
+                {
+                    window.nodes.update({id: nodeId, hidden: true})
+                    fetch_cluster_nodes(cluster_url + "/hashes", nodeData.title, "#44a04c", "hash", "dashed");
+                }
+            } else {
+                document.getElementById('title').innerText = 'Title: ';
+                document.getElementById('artifact-id').innerText = 'Artifact-id: ';
+                document.getElementById('artifact').innerHTML = 'Artifact: ';
+            }
+        });
+        /*when edge is clicked 
+        */
+        network.on("selectEdge", function(params)
+        {
+            if (params.edges.length > 0) {
+                const edgeId = params.edges[0];
+                const edgeData = edges.get(edgeId);
+                const node1 = nodes.get(edgeData.from);
+                const node2 = nodes.get(edgeData.to);
+                const node1Hash = nodeHashes[node1.id];
+                const node2Hash = nodeHashes[node2.id];
+
+                console.log(edgeData);
+                const similarity_value = document.createElement('h3');
+                similarity_value.id = 'similarity_value';
+                const card = document.getElementById('card');
+                const url = base_backend_url + 'edge/' +
+                    encodeURIComponent(node1.id) + '/' +
+                    encodeURIComponent(node2.id) + '/' +
+                    encodeURIComponent(edgeData.ssid);
+                fetch_edge_data(similarity_value, url, edgeData);
+                if (document.getElementById('similarity_value')) {
+                    document.getElementById('similarity_value').remove();
+                }
+                card.appendChild(similarity_value);
+
+            } else {
+                console.log('No edge selected');
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching manifest:', error);
+    }
+}
+
+async function calculate_edge_size(cluster_name,node1_id, node2_id)
+{
+    try {
+        // If you already have 'url' as a parameter, use it directly.
+        // Otherwise, build it here as needed.
+        const url = base_backend_url + 'edge/' +
+            encodeURIComponent(node1_id) + '/' +
+            encodeURIComponent(node2_id) + '/' +
+            encodeURIComponent(cluster_name);
+
+        const resp = await fetch(url);
+        if (resp.ok) {
+            const data = await resp.json();
+            switch (cluster_name) {
+                case "keyword":
+                    return data.keyword.length;
+                case "contributor":
+                    return 1;
+                case "hash":
+                    console.log("hashes",data.hash );
+                    return data.hash.length;
+                default:
+                    console.log(`unknown edge type: ${edgeData.ssid}`);
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching edge data:', error);
+    }
+}
+async function fetch_edge_data(similarity_value, url, edgeData)
+{
+    try {
+        console.log(url);
+        const resp = await fetch(url);
+        if (resp.ok) {
+            const data = await resp.json();
+
+            switch (edgeData.ssid) {
+            case "keyword":
+                similarity_value.innerText = `These nodes share the same keywords: ${data.keyword}`;
+                break;
+            case "contributor":
+                similarity_value.innerText = `These nodes share the same contributor: ${data.contributor}`;
+                break;
+            case "hash":
+                const fileTitles = []
+                    for (const file of data.hash) {
+                        
+                        const response = await fetch(base_backend_url + 'filehash/' + file + '/');
+                        const title = await response.json();
+                        fileTitles.push(title);
+                }
+                similarity_value.innerText = `These nodes share the same files: ${fileTitles.join(', ')}`;
+                break;
+            default:
+                console.log(`unknown edge type: ${edgeData.ssid}`);
+        }
+        } else {
+            console.error('Error fetching edge data:', resp.statusText);
+    }
+}
+    catch (error) {
+        console.error('Error fetching edge data:', error);
+    }
+}
+
+async function fetchNodeTitle(artifact_id) {
+    try {
+        artifact_id = artifact_id.replace('%7B', '');
+        artifact_id = artifact_id.replace('%7D', '');
+        const resp = await fetch(base_backend_url + 'artifact/' + artifact_id);
+        if (resp.ok) {
+            const data = await resp.json();
+            return data.title || "No Title";
+        }
+    } catch {}
+    return "No Title";
+}
+
+async function fetch_cluster_nodes(url, cluster_name, edgeColor, cluster, line_type)
+{
+        try {
+        const response = await fetch(url + "/" + encodeURIComponent(cluster_name));
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const cluster_nodes = await response.json();
+            let clusterNodeEdgeList;
+        if (typeof cluster_nodes.edges[0] === "string") {
+            try {
+                clusterNodeEdgeList = JSON.parse(cluster_nodes.edges[0]);
+            } catch (e) {
+                console.error("Failed to parse edges JSON string:", e);
+                return;
+            }
+        } else {
+            clusterNodeEdgeList = cluster_nodes.edges;
+        } // <-- Store globally for later use
+
+        //set size of center node
+        // Assume nodes and edges are vis.DataSet instances (like in your fetchManifest)
+        // If not, initialize them here or use your global ones
+        console.log(clusterNodeEdgeList);
+        for (const edge of clusterNodeEdgeList) {
+        // Add node1 if it doesn't exist
+
+        /* clean this logic later
+        */
+
+        console.log("window nodes", window.nodes);
+        if (!window.nodes.get(edge.node1)) {
+            const node1Title = await fetchNodeTitle(edge.node1);
+            console.log(edge.node1, "Node1");
+            console.log(node1Title, "title");
+            window.nodes.add({ id: edge.node1, label: truncateLabel(node1Title, 10), title: node1Title, color: "#97c2fc"});
+        }
+        // Add node2 if it doesn't exist
+        if (!window.nodes.get(edge.node2)) {
+            const node2Title = await fetchNodeTitle(edge.node2);
+            window.nodes.add({ id: edge.node2, label: truncateLabel(node2Title, 10), title: node2Title, color: "#97c2fc"});
+        }
+        // Add edge if it doesn't exist
+        const [from, to] = [edge.node1, edge.node2].sort();  // Lexicographically sort
+        const edgeId = `${from}-${to}-${cluster}`;
+
+        console.log("EDGE", edge.node1);
+        let edge_value = (await calculate_edge_size(cluster, edge.node1, edge.node2));
+
+        console.log(edge_value, cluster);
+        if (!window.edges.get(edgeId)) {
+            var edge_type;
+            switch(line_type)
+            {
+                case "dashed":
+                    edge_type = true;
+                break;
+                case "dotted":
+                    edge_type = [1,8,1,8];
+                    break;
+                default:
+                    edge_type = false;
+            }
+            window.edges.add({
+            id: edgeId,
+            from: edge.node1,
+            to: edge.node2,
+            color: { color: edgeColor },
+            value: edge_value,
+            dashes: edge_type,
+            ssid: cluster
+            });
+            }
+        if (!edgesData.some(e => e.id === edgeId)) {
+            edgesData.push({
+            id: edgeId,
+            from: edge.node1,
+            to: edge.node2,
+            value: 1,
+            dashes: edge_type
+            });
+        }
+        }
+        window.nodes.forEach((node) => {
+            // Only cluster nodes should have a cid
+            if (!node.cid){
+                const connectedEdges = window.network.getConnectedEdges(node.id);
+                const edgeCount = connectedEdges ? connectedEdges.length : 0;
+                window.nodes.update({ id: node.id, size: 20 + edgeCount * 3 });
+            }
+        });
+        // If you want to update the network visualization:
+/*        if (window.network) {
+        window.network.setData({ nodes: window.nodes, edges: window.edges });
+        }
+*/
+       // Add this after all nodes and edges are adde
+
+    } catch (error) {
+        console.error('Error fetching keywords:', error);
+    }
+}
+
+
+function searchNode()
+{
+    if(nodes)
+    {
+        const input = document.getElementById('searchInput');
+        const filter = input.value.toLowerCase();
+
+        const node = nodes.get({
+            filter: function (item) {
+                return item.title.toLowerCase().includes(filter);
+            }
+        });
+        if (!filter) {
+            // If search bar is cleared, reset all node colors
+            nodes.forEach(function(node) {
+                nodes.update({id: node.id, color: node.originalColor || '#FF0000'});
+            });
+            return;
+        }
+        if (node.length > 0) {
+            node.forEach(n => {
+                nodes.update({ id: n.id, color: '#00FF00' });
+            });
+            const nodeID = node[0].id;
+            network.focus(nodeID, {
+                scale: 2,
+                animation: {
+                    duration: 1000,
+                    easingFunction: 'easeInOutQuad'
+                }
+            });
+        }
+
+    }
+}
+
+
+
+</script>

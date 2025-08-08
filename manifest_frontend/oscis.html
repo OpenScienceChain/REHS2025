@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+
+
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="oscis.css">
+      <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+        #container{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+        #graph-container {
+            width: 600px;
+            height: 300px;
+            border: 1px solid rgb(0, 0, 0);
+        }
+        .card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: 300px;
+            /*height: auto; /* Allow card to shrink */
+            margin-left: 16px; /* Reduced spacing between cards if multiple */
+            border: transparent;
+            border-radius: 8px;
+            padding: 8px; /* Less padding */
+            background: #fff;
+            margin-bottom: 8px; /* Less space below each card */
+            gap: 4px; /* Add this to control spacing between child elements */
+        }
+        .card h2, .card h3 {
+            margin: 4px 0; /* Reduce vertical margin */
+            font-weight: normal;
+            font-size: 14px; /* Optional: reduce font size for tighter layout */
+        }
+        .files-row {
+            margin-top: 4px; /* Reduce vertical spacing above files */
+            gap: 4px; /* Reduce space between the file boxes */
+        }
+
+
+
+        #node1_files table, #node2_files table {
+            border-collapse: collapse;
+            width: 100%;
+            text-align: left;
+        }
+
+        #node1_files th, #node2_files th,
+        #node1_files td, #node2_files td {
+            border: 1px solid #ccc;
+            padding: 4px;
+            text-align: left;
+        }
+
+        .files-row {
+            display: flex;
+            flex-direction: row;
+            gap: 5px;
+            margin-top: 8px;
+            width: 100%;
+        }
+
+        #node1_files, #node2_files {
+            flex: none;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 145px;
+            border: 1px solid #eee;
+            padding: 4px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        h2, h3  {
+            font-weight: normal;
+        }
+
+        #similarity-score{
+            display: none;
+        }
+
+        #checkbox, #resetColors, #shared-keywords {
+            display: none;
+        }
+      #legend {
+          display: flex;
+          flex-direction: row;
+          gap: 16px;
+          margin-top: 4px;
+          margin-left: 31%;
+          /* Remove margin-left if present */
+      }
+      
+      dl dt{
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          vertical-align: middle;
+      }
+      dl dd{
+          display: inline-block;
+          margin: 0px 10px;
+          padding-bottom: 0;
+          vertical-align: middle;
+      }
+
+      dl dt.green{
+        background: #00FF00;
+      }
+      dl dt.blue
+      {
+        background: #97c2fc;
+      }
+      dl dt.purple
+      {
+        background: #373277; 
+      }
+
+      .slide-container{
+        width: 100%,
+      }
+  </style>
+</head>
+
+<body>
+<div id="app">
+  <div>
+    <div class="Header-root-O9oW9">
+      <div class="Header-container-qQ2mF">
+        <div class="Navigation-root-2gcJx" role="navigation">
+          <a class="Navigation-link-Ntl35" href="/">Search</a>
+          <span class="Navigation-spacer-3vZVG"> | </span>
+          <a class="Navigation-link-Ntl35" href="/contribute">Contribute</a>
+          <span class="Navigation-spacer-3vZVG"> | </span>
+          <a class="Navigation-link-Ntl35" href="http://www.opensciencechain.org/resources" target="_blank">Help</a>
+          <span class="Navigation-spacer-3vZVG"> | </span>
+          <a class="Navigation-link-Ntl35" href="/login/cilogon">Log in</a>
+        </div>
+        <a class="Header-brand-2oS_y" href="https://www.opensciencechain.org" target="_blank">
+
+          <span class="Header-brandTxt-230aH"></span>
+        </a>
+      </div>
+    </div>
+
+    <div id="data_root" class="Data-root-2Z1re">
+      <div id="data_container" class="Data-container-3Q3MH">
+        <h2>Data</h2>
+        <div class="Data-data_item-JX8c4">
+          <span class="Data-data_attr_header-op_NQ">Title:</span>
+          <span id="artifactTitle" style="font-weight: normal;"></span>
+          <span style="display:none;float:right;padding:0pt 5pt 0pt 5pt;vertical-align:super;margin-top:-3pt;border:1px solid #ccc;border-radius:5px"></span>
+          <br/>
+          <span class="Data-data_attr_header-op_NQ">ID:</span>
+          <span id="artifactIdentification" style="font-weight: normal;"></span>
+
+          <br/>
+          <span class="Data-data_attr_header-op_NQ">DOI:</span>
+          <span id="artifactDOI" style="font-weight: normal;"></span>
+          <br/>
+          <span class="Data-data_attr_header-op_NQ">Contributor:</span>
+          <span id="artifactContributor" style="font-weight: normal;"></span>
+          <br/>
+          <span  class="Data-data_attr_header-op_NQ">Manifest:</span>
+          <span id="numFiles" style="font-weight: normal;"></span>
+          <br/>
+          <span id="artifactKeyWords" class="Data-data_attr_header-op_NQ">Keywords:</span>
+          <br/>
+          <table id="manifest"class="Data-manifest_table-1Jbkx">
+          </table>
+          <div>
+            <a href="/history/osc-ce43e3ad-8f4b-40de-9fd9-a3e8709fca7f" target="data_history">
+              <input type="button" value="History" style="background-color:#373277;border:none;color:white;padding:10px;text-align:center;text-decoration:none;display:inline-block;font-size:14px;margin:10px 2px 2px 10px;cursor:pointer;border-radius:8px;outline:none" />
+            </a>
+            <span>
+              <input type="button" value="Report Issues" style="background-color:#373277;border:none;color:white;padding:10px;text-align:center;text-decoration:none;display:inline-block;font-size:14px;margin:10px 2px 2px 10px;cursor:pointer;border-radius:8px;outline:none" />
+            </span>
+            <span>
+              <input type="button" value="Watch" style="background-color:#373277;border:none;color:white;padding:10px;text-align:center;text-decoration:none;display:inline-block;font-size:14px;margin:10px 2px 2px 10px;cursor:pointer;border-radius:8px;outline:none" />
+            </span>
+          </div>
+        </div>
+        <div></div>
+      </div>
+    </div>
+
+    <div id="container">
+      <div id="graph-container"></div>
+
+      <div class="card">
+          <h2 id="title">Title: </h2>
+          <h3 id="artifact-id">Artifact-id: </h3>
+          <h3 id="artifact">Artifact: </h3>
+          <h3 id="similarity-score">Manifest Similarity: </h3>
+          <h3 id="shared-keywords">Shared Keywords: </h3>
+          <h3 id="shared-contributor">Shared Contributor: </h3>
+          <div class="files-row">
+              <div id="node1_files"></div>
+              <div id="node2_files"></div>
+          </div>
+          <div  id="checkbox" style="margin-top:8px;">
+              <label>
+                  <input type="checkbox" id="showOnlyShared" />
+                  Show only shared hashes
+              </label>
+          </div>
+
+          <div id="resetColors" style="margin-top:8px;">
+            <button id="resetColorsBtn">Reset Colors</button>
+          </div>
+      </div>
+
+
+
+
+
+    </div>
+        <div id="legend">
+          <dl>
+            <dt class="green"></dt>
+            <dd>Keyword Similarity</dd>
+
+            <dt class="blue"></dt>
+            <dd>File Similarity</dd>
+
+            <dt class="purple"></dt>
+            <dd>Contributor Similarity</dd>
+          </dl>
+
+             <div id="slidercontainer">
+                <label for="depthSlider">Depth: </label>
+                <input type="range" id="depthSlider" min="0" max="5" value="3"/>
+                <span id="depthValue">3</span>
+            </div>
+        </div>
+ 
+    <div class="Footer-root-1UUMy">
+      <div class="Footer-container-3dfAC">
+        <p>
+          <small>
+            Open Science Chain is supported by the National Science Foundation under award number
+            <a href="https://www.nsf.gov/awardsearch/showAward?AWD_ID=1840218">1840218</a>
+            <br/>
+            Open Science Chain, San Diego Supercomputer Center, University of California San Diego, 9500 Gilman Drive, La Jolla, CA 92093-0505
+            <br/>
+            Copyright © opensciencechain.org. All Rights Reserved.
+          </small>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+
+<script type="text/javascript">
+
+/*slider controls
+*/
+const slider = document.getElementById("depthSlider");
+const valueDisplay = document.getElementById("depthValue");
+slider.addEventListener("input", () => {
+  valueDisplay.textContent = slider.value;
+  if(window.nodes)
+  {
+    window.nodes.forEach(node => {
+      if(node.cid){
+        if(node.cid > slider.value)
+        {
+          window.nodes.update({id: node.id, hidden: true})
+        }
+        else if(node.cid < slider.value && node.hidden === true)
+        {
+          window.nodes.update({id: node.id, hidden:false})
+        }
+      }
+      })  
+  }
+})
+
+const artifact_id = localStorage.getItem('selectedArtifactId');
+const backend_url = "http://127.0.0.1:5000/";
+
+/* fetching the manifest data from the backend
+*/
+let nodesData = [];
+let edgesData = [];
+let nodeHashes = {};
+let keywordEdgeList = [];
+let contributorEdgeList = [];
+const connectionCount = new Map();
+let edges_and_hashes;
+let thickness = 0.6;
+window.onload = function() {
+    fetchManifest();
+    console.log("artifact_id:", artifact_id); // Debug line
+    fetchArtifact(artifact_id).then(() =>
+    {
+      fetchKeyword(artifact_id);
+    }).then(() => {
+      fetchContributor(artifact_id);
+    });
+};
+
+function truncateLabel(text, maxLength)
+{
+    if (text.length > maxLength)
+    {
+        return text.slice(0, maxLength-3) + '...';
+    }
+    return text;
+}
+
+async function fetchContributor(artifact_id)
+{
+  try {
+    const response = await fetch(backend_url + 'artifact/contributor/' + artifact_id);
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const contributor_data = await response.json();
+    console.log("CONTRIUBUT BALS", contributor_data.edge_list);
+    contributorEdgeList = contributor_data.edge_list; // <-- Store globally for later use
+
+    console.log(contributorEdgeList);
+    //set size of center node
+    // Assume nodes and edges are vis.DataSet instances (like in your fetchManifest)
+    // If not, initialize them here or use your global ones
+    if (!window.nodes) window.nodes = new vis.DataSet([]);
+    if (!window.edges) window.edges = new vis.DataSet([]);
+
+    for (const edge of contributor_data.edge_list) {
+      console.log(edge.node1, edge.node2);
+
+      // Add node2 if it doesn't exist
+      if (!window.nodes.get(edge.node2)) {
+        const node2Title = await fetchNodeTitle(edge.node2);
+        window.nodes.add({ id: edge.node2, label: truncateLabel(node2Title, 10), title: node2Title,  color: "#97c2fc" });
+      }
+      // Add edge if it doesn't exist
+      const edgeId = `${edge.node1}-${edge.node2}`;
+      if (!window.edges.get(edgeId)) {
+        window.edges.add({
+          id: edgeId,
+          from: edge.node1,
+          to: edge.node2,
+          color: { color: "#373277" },
+          value: 1,
+        });
+        }
+      if (!edgesData.some(e => e.id === edgeId)) {
+        edgesData.push({
+          id: edgeId,
+          from: edge.node1,
+          to: edge.node2,
+        });
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error fetching contributor:', error);
+  }
+}
+
+
+async function fetchKeyword(artifact_id) {
+  try {
+    const response = await fetch(backend_url + 'artifact/keywords/' + artifact_id);
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const keyword_data = await response.json();
+    console.log(keyword_data.edge_list);
+    keywordEdgeList = keyword_data.edge_list; // <-- Store globally for later use
+
+    //set size of center node
+    const center_label = window.nodes.get(artifact_id).label
+    window.nodes.update([{id: window.nodes.get(artifact_id).id, size: 30, label: `<b>${center_label}</b>`}])
+    // Assume nodes and edges are vis.DataSet instances (like in your fetchManifest)
+    // If not, initialize them here or use your global ones
+    if (!window.nodes) window.nodes = new vis.DataSet([]);
+    if (!window.edges) window.edges = new vis.DataSet([]);
+
+    for (const edge of keyword_data.edge_list) {
+      // Add node1 if it doesn't exist
+      console.log("widownode", window.nodes.get(edge.node1));
+
+      console.log(edge.node1, edge.node2);
+      if (!window.nodes.get(edge.node1)) {
+        const node1Title = await fetchNodeTitle(edge.node1);
+        window.nodes.add({ id: edge.node1, label: truncateLabel(node1Title, 10), title: node1Title, color: "#97c2fc", cid: edge.node1depth});
+      }
+      // Add node2 if it doesn't exist
+      if (!window.nodes.get(edge.node2)) {
+        const node2Title = await fetchNodeTitle(edge.node2);
+        window.nodes.add({ id: edge.node2, label: truncateLabel(node2Title, 10), title: node2Title, color: "#97c2fc", cid: edge.node2depth});
+      }
+      // Add edge if it doesn't exist
+      const edgeId = `${edge.node1}-${edge.node2}`;
+      if (!window.edges.get(edgeId)) {
+        window.edges.add({
+          id: edgeId,
+          from: edge.node1,
+          to: edge.node2,
+          color: { color: "#00FF00" },
+          value: 0.4* edge.shared_keywords.length,
+        });
+        }
+      if (!edgesData.some(e => e.id === edgeId)) {
+        edgesData.push({
+          id: edgeId,
+          from: edge.node1,
+          to: edge.node2,
+        });
+        connectionCount.set(`${edge.node1}-${edge.node2}`, edge.shared_keywords.length);
+      }
+    }
+
+    // If you want to update the network visualization:
+    if (window.network) {
+      window.network.setData({ nodes: window.nodes, edges: window.edges });
+    }
+
+  } catch (error) {
+    console.error('Error fetching keywords:', error);
+  }
+}
+
+// Helper function to fetch node title from backend
+async function fetchNodeTitle(artifact_id) {
+  try {
+    const resp = await fetch(backend_url + 'artifact/' + artifact_id);
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.title || "No Title";
+    }
+  } catch {}
+  return "No Title";
+}
+async function fetchArtifact(artifact_id) {
+    try {
+        const response = await fetch(backend_url + 'artifact/' + artifact_id);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const artifact_data = await response.json();
+        console.log("artifact_data", artifact_data);
+        document.getElementById('artifactTitle').innerText = `${artifact_data.title}`;
+        document.getElementById('artifactIdentification').innerText = `${artifact_data.artifact_id}`;
+        document.getElementById('artifactDOI').innerHTML = `${artifact_data.doi}`;
+        document.getElementById('numFiles').innerText = `${Object.keys(artifact_data.manifest).length} files`;
+        document.getElementById('artifactKeyWords').innerText = `Keywords: ${artifact_data.keywords}`;
+        document.getElementById('artifactContributor').innerText = `${artifact_data.contributor}`;
+
+        const manifestContainer = document.getElementById('manifest');
+        Object.keys(artifact_data.manifest).forEach(file => {
+            const row = document.createElement('tr');
+            const fileCell = document.createElement('td');
+            const tbody = document.createElement('tbody');
+            fileCell.textContent = artifact_data.manifest[file];
+            const hashCell = document.createElement('td');
+            hashCell.textContent = file;
+            row.appendChild(fileCell);
+            row.appendChild(hashCell);
+            tbody.appendChild(row);
+            manifestContainer.appendChild(tbody);
+        });
+        console.log(artifact_data.keywords)
+    } catch (error) {
+        console.error('Error fetching artifact:', error);
+    }
+}
+
+async function fetchManifest() {
+    try {
+        const response = await fetch(backend_url + "manifest/" + artifact_id);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const manifest_data = await response.json();
+        const manifest = manifest_data.manifest;
+        console.log(manifest);
+        nodesData = manifest
+            .filter(item => item.artifact_id)
+            .map(item => ({
+                id: item.artifact_id,
+                label: truncateLabel(item.title, 10),
+                title: item.title,
+                originalColor: "#97c2fc",
+            }));
+            nodeHashes = manifest
+            .filter(item => item.artifact_id)
+            .reduce((acc, item) => {
+                acc[item.artifact_id] = item.hash_and_files;
+                return acc;
+            }, {});
+            let edgesObj = manifest[manifest.length -1];
+            edges_and_hashes = Object.values(edgesObj);
+        const addedEdges = new Set();
+        edgesObj = Object.values(edgesObj);
+        edgesObj.forEach(value=> {
+            value.forEach(edge =>{
+                let edge_nodes = [edge.node1, edge.node2].sort();
+                let edgeKey = `${edge_nodes[0]}-${edge_nodes[1]}`;
+
+                if(connectionCount.has(edgeKey)) {
+                    connectionCount.set(edgeKey, connectionCount.get(edgeKey) + thickness);
+                } else {
+                    connectionCount.set(edgeKey, 1);
+                }
+
+                if(!addedEdges.has(edgeKey)) {
+                    edgesData.push({
+                        from: edge.node1,
+                        to: edge.node2,
+                        value: connectionCount.get(edgeKey)
+                    });
+                    addedEdges.add(edgeKey);
+                }
+                else
+                {
+                    edgesData.forEach(edgeData => {
+                        if(edgeData.from === edge.node1 && edgeData.to === edge.node2) {
+                            edgeData.value = connectionCount.get(edgeKey);
+                        }
+                    });
+                }
+
+            })
+        })
+        console.log(edgesData);
+        console.log(connectionCount);
+        nodes = new vis.DataSet(nodesData);
+        edges = new vis.DataSet(edgesData);
+        var container = document.getElementById('graph-container');
+
+        
+        var data = {
+            nodes: nodes,
+            edges: edges
+        }
+        var data = {
+                    nodes: nodes,
+                    edges: edges
+                }
+        var options = {
+            nodes: {
+              shape: "dot", 
+              size: 15,
+              font: {
+                multi: 'html'
+              }
+            },
+            layout: {
+                improvedLayout: true,
+            },
+            interaction: {
+                dragView: true, // Prevents dragging the entire graph
+                // Optionally, you can still allow node dragging:
+                dragNodes: true
+            },
+            physics: {
+                enabled: true, // Disable physics for a static layout
+                barnesHut: {
+                    avoidOverlap: 0.2,
+                },
+                stabilization: {
+                    iterations: 200
+                }
+            },
+
+            edges: {
+                scaling: {
+                    min: 1,      // Minimum edge width (for smallest value)
+                    max: 5,      // Maximum edge width (for largest value)
+                    customScalingFunction: function (min, max, total, value) {
+                        return value; // Linear scaling instead of vis.js's default nonlinear behavior
+                    },
+                  },
+                smooth: {
+                  enabled: true,
+                  type: "dynamic"
+                },
+
+        }
+        };
+
+        var network = new vis.Network(container, data, options)
+
+
+    network.on('click', function (params) {
+        if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            const nodeData = nodes.get(nodeId);
+            document.getElementById('title').innerText = `Title: ${nodeData.title}`;
+            document.getElementById('artifact-id').innerText = `Artifact-id: ${nodeData.id}`;
+            document.getElementById('artifact').innerHTML = 'Artifact: <a href="http://localhost:8000/oscis.html" target="_blank">Artifact</a>';
+            hideCardDetail(false);
+            localStorage.setItem('selectedArtifactId', nodeData.id);
+        } else {
+            document.getElementById('title').innerText = 'Title: ';
+            document.getElementById('artifact-id').innerText = 'Artifact-id: ';
+            document.getElementById('artifact').innerHTML = 'Artifact: ';
+        }
+    });
+    network.on("selectEdge", function(params)
+        {
+            console.log(params)
+            if (params.edges.length > 0) {
+                const edgeId = params.edges[0];
+                const edgeData = edges.get(edgeId);
+                const node1 = nodes.get(edgeData.from);
+                const node2 = nodes.get(edgeData.to);
+                const node1Hash = nodeHashes[node1.id];
+                const node2Hash = nodeHashes[node2.id];
+
+                hideCardDetail(true);
+
+                const sharedEdge = keywordEdgeList.find(e =>
+                    (e.node1 === edgeData.from && e.node2 === edgeData.to) ||
+                    (e.node1 === edgeData.to && e.node2 === edgeData.from)
+                );
+
+                const sharedContributorEdge = contributorEdgeList.find(e =>
+                    (e.node1 === edgeData.from && e.node2 === edgeData.to) ||
+                    (e.node1 === edgeData.to && e.node2 === edgeData.from)
+                );
+
+                if (sharedContributorEdge && sharedContributorEdge.shared_contributor)
+                {
+                  document.getElementById('shared-contributor').innerText = "Shared Contributor: " + sharedContributorEdge.shared_contributor;
+                }
+                else
+                {
+                  document.getElementById('shared-contributor').innerText = "Shared Contributor: None";
+                }
+
+                if (sharedEdge && sharedEdge.shared_keywords) {
+                    document.getElementById('shared-keywords').innerText = "Shared Keywords: " + sharedEdge.shared_keywords.join(", ");
+                } else {
+                    document.getElementById('shared-keywords').innerText = "Shared Keywords: None";
+                }
+                let connection = 0;
+
+                if(connectionCount.get(`${edgeData.from}-${edgeData.to}`))
+                {
+                  connection = connectionCount.get(`${edgeData.from}-${edgeData.to}`);
+                }
+                else
+                {
+                  connection = connectionCount.get(`${edgeData.to}-${edgeData.from}`);
+                }
+                const intersectionLen = (connection-1)/thickness + 1;
+                const union = Object.keys(node1Hash).length + Object.keys(node2Hash).length - 2*intersectionLen;
+
+                console.log(union);
+                const similarity = intersectionLen / union * 100;
+
+                document.getElementById('similarity-score').innerText = `Manifest Similarity: ${similarity.toFixed(2)}%`;
+                console.log(`Similarity Score: ${similarity.toFixed(2)}%`);
+
+                const same_hashes = [];
+                edges_and_hashes.forEach(value => {
+                  value.forEach(edge => {
+                    same_hashes.push(edge.hash);
+                  })
+                })
+                console.log(same_hashes);
+                document.getElementById('node1_files').innerHTML = '';
+                document.getElementById('node2_files').innerHTML = '';
+                generateTable(node1.title, Object.keys(node1Hash), node1Hash, 'node1_files', same_hashes);
+                generateTable(node2.title, Object.keys(node2Hash), node2Hash, 'node2_files', same_hashes);
+                
+            } else {
+                console.log('No edge selected');
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching manifest:', error);
+    }
+    
+}
+
+function hideCardDetail(display)
+{
+  const node_details = ['title', 'artifact-id', 'artifact']
+  const edge_details =['similarity-score', 'node1_files', 'node2_files', 'checkbox', 'resetColors', 'shared-keywords', 'shared-contributor'];
+  if(display)
+  {
+    node_details.forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    edge_details.forEach(id => {
+      document.getElementById(id).style.display = 'block';
+    });
+  }
+  else
+  {
+    node_details.forEach(id => {
+      document.getElementById(id).style.display = 'block';
+    });
+    edge_details.forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+  }
+}
+
+function generateTable(name, key, object, containerId, same_hashes)
+{
+  window.lastSameHashes = same_hashes; // Store the hashes globally for reset functionality
+  const tableContainer = document.getElementById(containerId);
+  const table = document.createElement('table');
+  const tbody = document.createElement('tbody');
+  const headerRow = document.createElement('tr');
+  const headerCell = document.createElement('th');
+
+  headerCell.textContent = name;
+  headerRow.appendChild(headerCell);
+  tbody.appendChild(headerRow);
+  key.forEach(item =>
+  {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+
+
+    
+    cell.textContent = object[item];
+    cell.className = item;
+    if(same_hashes.includes(item))
+    {
+      cell.style.backgroundColor = '#d4edda'; // Light green for same hashes
+      cell.addEventListener("click", function(event) {
+        var highlight_color = getRandomYellowShadeRGB();
+        Array.from(document.getElementsByClassName(item)).forEach(el => {
+          el.style.backgroundColor = highlight_color;
+        });
+      })
+    }
+    row.appendChild(cell);
+    tbody.appendChild(row);
+    table.appendChild(tbody);
+  });
+
+  tableContainer.appendChild(table);
+}
+
+document.getElementById('showOnlyShared').addEventListener('change', function() {
+    const showOnlyShared = this.checked;
+    ['node1_files', 'node2_files'].forEach(containerId => {
+        const table = document.getElementById(containerId).querySelector('table');
+        if (!table) return;
+        // Skip header row (index 0)
+        Array.from(table.rows).forEach((row, idx) => {
+            if (idx === 0) return; // header
+            const cell = row.cells[0];
+            if (showOnlyShared) {
+                // Hide row if not green
+                row.style.display = (cell.style.backgroundColor === 'rgb(212, 237, 218)') ? '' : 'none';
+            } else {
+                row.style.display = '';
+            }
+        });
+    });
+});
+/* Function to render the graph using vis.js
+*/
+function getRandomYellowShadeRGB() {
+    const baseRed = 255;
+    const baseGreen = 255;
+    const baseBlue = 255;
+
+    // Introduce slight randomness to red and green
+    const randomRedOffset = Math.floor((Math.random() - 0.5) * 100); // -25 to +25
+    const randomGreenOffset = Math.floor((Math.random() - 0.5) * 100); // -25 to +25
+    const randomBlueOffset = Math.floor((Math.random() - 0.5) * 100); // -25 to +25
+
+    const newRed = Math.max(0, Math.min(255, baseRed + randomRedOffset));
+    const newGreen = Math.max(0, Math.min(255, baseGreen + randomGreenOffset));
+    const newBlue = Math.max(0, Math.min(255, baseBlue + randomBlueOffset));
+
+    return `rgb(${newRed}, ${newGreen}, ${newBlue})`;
+}
+document.getElementById('resetColorsBtn').addEventListener('click', function() {
+    // Get all table cells in both tables
+    const allCells = document.querySelectorAll('#node1_files td, #node2_files td');
+    allCells.forEach(cell => {
+        // If the cell's value is a shared hash, set to green; else, clear
+        const sharedHashes = [];
+        // Try to get the shared hashes from the current tables
+        // (Assumes you store them globally or can infer from the cell's class)
+        // Here, we use the cell's className as the hash
+        if (window.lastSameHashes && window.lastSameHashes.includes(cell.className)) {
+            cell.style.backgroundColor = '#d4edda';
+        } else {
+            cell.style.backgroundColor = '';
+        }
+    });
+});
+
+</script>
+
+</html>
